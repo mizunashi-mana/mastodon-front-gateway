@@ -13,9 +13,12 @@ type FormValues = {
     enableAutoJump?: boolean;
 }
 
-export type FormError =
+export type FormState =
     | {
         type: "ok";
+    }
+    | {
+        type: "redirect-automatically";
     }
     | {
         type: "critical-error";
@@ -45,8 +48,9 @@ type PropsInView = {
     submitStatus: SubmitStatus;
     errorMessageKey?: I18nKey;
     resetUrlString: string;
+    redirectAutomatically: boolean;
     shouldSaveUserId: boolean;
-    onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+    onSubmit: (event?: React.FormEvent<HTMLFormElement>) => void;
     register: ReactHookForm.UseFormRegister<FormValues>;
     setValue: ReactHookForm.UseFormSetValue<FormValues>;
     watch: ReactHookForm.UseFormWatch<FormValues>;
@@ -61,7 +65,6 @@ function usePropsInView(propsAndStates: {
     const siteConfigService = React.useContext(SiteConfigServiceContext);
     const storageService = React.useContext(StorageServiceContext);
     const navigationService = React.useContext(NavigationServiceContext);
-    const [formError, updateFormError] = React.useState<FormError>({ type: "ok" });
 
     const postData = React.useMemo(() => {
         return getPostData(propsAndStates.location.href);
@@ -72,7 +75,12 @@ function usePropsInView(propsAndStates: {
         return loadShareConfig(storageItem);
     }, [storageService]);
 
-    const { register, handleSubmit, watch, setValue, formState } = ReactHookForm.useForm<FormValues>({
+    const redirectAutomatically = shareConfig.redirectAutomatically;
+
+    const [formState, updateFormState] = React.useState<FormState>(
+        redirectAutomatically ? { type: "redirect-automatically" } : { type: "ok" }
+    );
+    const { register, handleSubmit, watch, setValue, formState: reactHookFormState } = ReactHookForm.useForm<FormValues>({
         defaultValues: {
             userId: shareConfig.userId,
             saveUserId: shareConfig.userId !== undefined,
@@ -91,28 +99,31 @@ function usePropsInView(propsAndStates: {
         I18nKey | undefined,
         SubmitStatus
     ]>(() => {
-        if (formState.isSubmitting) {
+        if (reactHookFormState.isSubmitting || reactHookFormState.isSubmitSuccessful) {
             return [false, undefined, { type: "submitting" }];
         } else {
-            switch (formError.type) {
+            switch (formState.type) {
                 case "ok":
-                    if (formState.isValid) {
+                    if (reactHookFormState.isValid) {
                         return [true, undefined, { type: "can-submit" }];
                     } else {
                         return [false, "Some items are not filled.", { type: "validation-failed" }];
                     }
+                case "redirect-automatically":
+                    return [false, undefined, { type: "submitting" }];
                 case "input-error":
-                    return [true, formError.messageKey, { type: "validation-failed" }];
+                    return [true, formState.messageKey, { type: "validation-failed" }];
                 case "critical-error":
-                    return [false, formError.messageKey, { type: "validation-failed" }];
+                    return [false, formState.messageKey, { type: "validation-failed" }];
             }
         }
-    }, [formError, formState]);
+    }, [formState, reactHookFormState]);
 
     const onInputError = React.useCallback((errorMsg: I18nKey) => {
-        updateFormError(currentFormError => {
+        updateFormState(currentFormError => {
             switch (currentFormError.type) {
                 case "ok":
+                case "redirect-automatically":
                 case "input-error":
                     return {
                         type: "input-error",
@@ -123,12 +134,13 @@ function usePropsInView(propsAndStates: {
                     return currentFormError;
             }
         })
-    }, [updateFormError]);
+    }, [updateFormState]);
 
     const onCriticalError = React.useCallback((errorMsg: I18nKey) => {
-        updateFormError(currentFormError => {
+        updateFormState(currentFormError => {
             switch (currentFormError.type) {
                 case "ok":
+                case "redirect-automatically":
                 case "input-error":
                     return {
                         type: "critical-error",
@@ -139,12 +151,13 @@ function usePropsInView(propsAndStates: {
                     return currentFormError;
             }
         })
-    }, [updateFormError]);
+    }, [updateFormState]);
 
     const onChangeInput = React.useCallback(() => {
-        updateFormError(currentFormError => {
+        updateFormState(currentFormError => {
             switch (currentFormError.type) {
                 case "ok":
+                case "redirect-automatically":
                 case "input-error":
                     return {
                         type: "ok",
@@ -154,7 +167,7 @@ function usePropsInView(propsAndStates: {
                     return currentFormError;
             }
         })
-    }, [updateFormError]);
+    }, [updateFormState]);
 
     const onHandleSubmit = React.useCallback(async (formValues: FormValues) => {
         await onSubmitShareMastodon(
@@ -175,6 +188,7 @@ function usePropsInView(propsAndStates: {
             submitEnabled: submitEnabled,
             submitStatus: submitStatus,
             shouldSaveUserId: enableAutoJump ?? false,
+            redirectAutomatically: redirectAutomatically,
             setValue: setValue,
             register: register,
             watch: watch,
@@ -190,6 +204,7 @@ function usePropsInView(propsAndStates: {
         submitStatus,
         enableAutoJump,
         errorMessageKey,
+        redirectAutomatically,
         onSubmit,
         register,
         setValue,
@@ -204,6 +219,12 @@ export const Share: React.FC<{}> = () => {
     const propsInView = usePropsInView({
         location,
     });
+
+    React.useEffect(() => {
+        if (propsInView.redirectAutomatically) {
+            propsInView.onSubmit();
+        }
+    }, [propsInView.redirectAutomatically]);
 
     React.useEffect(() => {
         if (propsInView.shouldSaveUserId) {
@@ -271,7 +292,6 @@ export const Share: React.FC<{}> = () => {
                             id="input_enable_autojump"
                             type="checkbox"
                             className="rounded mr-2"
-                            disabled // TODO
                             {...propsInView.register("enableAutoJump")}
                             ></input>
                         <label
