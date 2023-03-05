@@ -1,14 +1,16 @@
 import * as ReactI18next from "react-i18next";
-import { I18nKey } from "./key";
+import { I18nService, Translation } from "../services/I18nService";
 
-export type Translation = {
-    t: (key: I18nKey, data?: { [key: string]: any }) => string;
-};
+export function buildI18nService(): I18nService {
+    return new I18nServiceImpl();
+}
 
-export function useTranslation(): Translation {
-    const { t } = ReactI18next.useTranslation();
+class I18nServiceImpl implements I18nService {
+    useTranslation(): Translation {
+        const { t } = ReactI18next.useTranslation();
 
-    return {
-        t: t,
-    };
+        return {
+            t: t,
+        };
+    }
 }

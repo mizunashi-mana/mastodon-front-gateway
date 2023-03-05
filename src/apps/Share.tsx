@@ -1,17 +1,24 @@
-import React, { ReactElement } from "react";
-import { useTranslation } from "../i18n";
+import React from "react";
 import { I18nKey } from "../i18n/key";
+import * as ReactHookForm from "react-hook-form";
+import { I18nServiceContext } from "../services/I18nService";
+import { SiteConfigServiceContext } from "../services/SiteConfigService";
+import { StorageService, StorageServiceContext } from "../services/StorageService";
+import { StorageItem } from "../storage/types";
+import { NavigationService, NavigationServiceContext } from "../services/NavigationService";
 
-export type Props = {
-    baseUrl: URL;
-};
+type FormValues = {
+    userId?: string;
+    saveUserId?: boolean;
+    enableAutoJump?: boolean;
+}
 
 export type FormError =
     | {
         type: "ok";
     }
     | {
-        type: "location-error";
+        type: "critical-error";
         messageKey: I18nKey;
     }
     | {
@@ -38,46 +45,69 @@ type PropsInView = {
     submitStatus: SubmitStatus;
     errorMessageKey?: I18nKey;
     resetUrlString: string;
+    shouldSaveUserId: boolean;
+    onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+    register: ReactHookForm.UseFormRegister<FormValues>;
+    setValue: ReactHookForm.UseFormSetValue<FormValues>;
+    watch: ReactHookForm.UseFormWatch<FormValues>;
     onInputError: (error: I18nKey) => void;
-    onLocationError: (error: I18nKey) => void;
+    onCriticalError: (error: I18nKey) => void;
     onChangeInput: () => void;
-    onSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
 };
 
-function usePropsInView(
-    props: Props,
-    location: Location,
-    formError: FormError,
-    updateFormError: (updater: (currentError: FormError) => FormError) => void,
-    submitting: boolean,
-    setSubmitting: (submitting: boolean) => void,
-): PropsInView {
+function usePropsInView(propsAndStates: {
+    location: Location
+}): PropsInView {
+    const siteConfigService = React.useContext(SiteConfigServiceContext);
+    const storageService = React.useContext(StorageServiceContext);
+    const navigationService = React.useContext(NavigationServiceContext);
+    const [formError, updateFormError] = React.useState<FormError>({ type: "ok" });
+
     const postData = React.useMemo(() => {
-        return getPostData(location.href);
-    }, [location.href]);
+        return getPostData(propsAndStates.location.href);
+    }, [propsAndStates.location.href]);
+
+    const shareConfig = React.useMemo(() => {
+        const storageItem = storageService.get();
+        return loadShareConfig(storageItem);
+    }, [storageService]);
+
+    const { register, handleSubmit, watch, setValue, formState } = ReactHookForm.useForm<FormValues>({
+        defaultValues: {
+            userId: shareConfig.userId,
+            saveUserId: shareConfig.userId !== undefined,
+            enableAutoJump: shareConfig.redirectAutomatically
+        },
+    });
 
     const resetUrlString = React.useMemo(() => {
-        return new URL("./reset/", props.baseUrl).toString();
-    }, [props.baseUrl]);
+        return new URL("./reset/", siteConfigService.baseUrl).toString();
+    }, [siteConfigService.baseUrl]);
+
+    const enableAutoJump = watch("enableAutoJump");
 
     const [submitEnabled, errorMessageKey, submitStatus] = React.useMemo<[
         boolean,
         I18nKey | undefined,
         SubmitStatus
     ]>(() => {
-        if (submitting) {
+        if (formState.isSubmitting) {
             return [false, undefined, { type: "submitting" }];
         } else {
             switch (formError.type) {
                 case "ok":
-                    return [true, undefined, { type: "can-submit" }];
+                    if (formState.isValid) {
+                        return [true, undefined, { type: "can-submit" }];
+                    } else {
+                        return [false, "Some items are not filled.", { type: "validation-failed" }];
+                    }
                 case "input-error":
                     return [true, formError.messageKey, { type: "validation-failed" }];
-                case "location-error":
+                case "critical-error":
                     return [false, formError.messageKey, { type: "validation-failed" }];
             }
         }
-    }, [formError, submitting]);
+    }, [formError, formState]);
 
     const onInputError = React.useCallback((errorMsg: I18nKey) => {
         updateFormError(currentFormError => {
@@ -88,23 +118,23 @@ function usePropsInView(
                         type: "input-error",
                         messageKey: errorMsg,
                     };
-                case "location-error":
+                case "critical-error":
                     // not overwrite error.
                     return currentFormError;
             }
         })
     }, [updateFormError]);
 
-    const onLocationError = React.useCallback((errorMsg: I18nKey) => {
+    const onCriticalError = React.useCallback((errorMsg: I18nKey) => {
         updateFormError(currentFormError => {
             switch (currentFormError.type) {
                 case "ok":
                 case "input-error":
                     return {
-                        type: "location-error",
+                        type: "critical-error",
                         messageKey: errorMsg,
                     };
-                case "location-error":
+                case "critical-error":
                     // not overwrite error.
                     return currentFormError;
             }
@@ -119,22 +149,23 @@ function usePropsInView(
                     return {
                         type: "ok",
                     };
-                case "location-error":
+                case "critical-error":
                     // not overwrite error.
                     return currentFormError;
             }
         })
     }, [updateFormError]);
 
-    const onSubmit = React.useCallback(async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        setSubmitting(true);
-        try {
-            await onSubmitShareMastodon(onInputError, event, postData);
-        } finally {
-            setSubmitting(false);
-        }
-    }, [onInputError, postData, setSubmitting]);
+    const onHandleSubmit = React.useCallback(async (formValues: FormValues) => {
+        await onSubmitShareMastodon(
+            onInputError,
+            formValues,
+            postData,
+            storageService,
+            navigationService,
+        );
+    }, [onInputError, postData, storageService])
+    const onSubmit = handleSubmit(onHandleSubmit);
 
     return React.useMemo(() => {
         return {
@@ -143,35 +174,52 @@ function usePropsInView(
             errorMessageKey: errorMessageKey,
             submitEnabled: submitEnabled,
             submitStatus: submitStatus,
-            onInputError: onInputError,
-            onLocationError: onLocationError,
-            onChangeInput: onChangeInput,
+            shouldSaveUserId: enableAutoJump ?? false,
+            setValue: setValue,
+            register: register,
+            watch: watch,
             onSubmit: onSubmit,
+            onInputError: onInputError,
+            onCriticalError: onCriticalError,
+            onChangeInput: onChangeInput,
         };
     }, [
         postData,
         resetUrlString,
         submitEnabled,
         submitStatus,
+        enableAutoJump,
         errorMessageKey,
+        onSubmit,
+        register,
+        setValue,
         onInputError,
-        onLocationError,
+        onCriticalError,
         onChangeInput,
-        onSubmit
     ]);
 }
 
-export const Share: React.FC<Props> = props => {
-    const { t } = useTranslation();
-    const [formError, updateFormError] = React.useState<FormError>({ type: "ok" });
-    const [submitting, setSubmitting] = React.useState(false);
-    const propsInView = usePropsInView(props, location, formError, updateFormError, submitting, setSubmitting);
+export const Share: React.FC<{}> = () => {
+    const { t } = React.useContext(I18nServiceContext).useTranslation();
+    const propsInView = usePropsInView({
+        location,
+    });
+
+    React.useEffect(() => {
+        if (propsInView.shouldSaveUserId) {
+            propsInView.setValue("saveUserId", true);
+        }
+    }, [propsInView.shouldSaveUserId, propsInView.setValue]);
 
     React.useEffect(() => {
         if (propsInView.postData === undefined) {
-            propsInView.onLocationError("Missing any post contents. Some troubles happened.");
+            propsInView.onCriticalError("Missing any post contents. Some troubles happened.");
         }
-    }, [propsInView.onLocationError, propsInView.postData]);
+    }, [propsInView.onCriticalError, propsInView.postData]);
+
+    React.useEffect(() => {
+        propsInView.onChangeInput();
+    }, propsInView.watch(["userId", "saveUserId", "enableAutoJump"]));
 
     return (
         <section className="p-4 flex flex-col justify-center max-w-md mx-auto">
@@ -182,11 +230,7 @@ export const Share: React.FC<Props> = props => {
                     <label htmlFor="input_user_id" className="text-base font-medium">{t("User ID:")}</label>
                     <input
                         id="input_user_id"
-                        name="user_id"
-                        defaultValue={undefined}
                         placeholder="@username@example.com"
-                        required
-                        onChange={propsInView.onChangeInput}
                         className="
                             px-2 py-1.5 mt-1 mb-1 block w-full
                             border border-gray-300 rounded-md
@@ -198,6 +242,10 @@ export const Share: React.FC<Props> = props => {
                             focus:ring-gray-500
                             focus:invalid:border-red-500 focus:invalid:ring-red-500
                         "
+                        required
+                        {...propsInView.register("userId", {
+                            required: "User ID is required."
+                        })}
                         ></input>
                     <small className="text-sm font-medium text-gray-400 mb-3">
                         {t("Your user ID of Mastodon to share the post.")}
@@ -206,10 +254,9 @@ export const Share: React.FC<Props> = props => {
                         <input
                             id="input_save_userid"
                             type="checkbox"
-                            name="save_userid"
-                            defaultChecked={undefined}
                             className="rounded mr-2"
-                            disabled // TODO
+                            disabled={propsInView.shouldSaveUserId}
+                            {...propsInView.register("saveUserId")}
                             ></input>
                         <label
                             htmlFor="input_save_userid"
@@ -223,10 +270,9 @@ export const Share: React.FC<Props> = props => {
                         <input
                             id="input_enable_autojump"
                             type="checkbox"
-                            name="enable_autojump"
-                            defaultChecked={undefined}
                             className="rounded mr-2"
                             disabled // TODO
+                            {...propsInView.register("enableAutoJump")}
                             ></input>
                         <label
                             htmlFor="input_enable_autojump"
@@ -271,6 +317,40 @@ export const Share: React.FC<Props> = props => {
         </section>
     );
 };
+
+function loadShareConfig(storageItem: StorageItem | undefined): {
+    userId?: string;
+    redirectAutomatically: boolean;
+} {
+    if (storageItem === undefined) {
+        return {
+            redirectAutomatically: false,
+        };
+    }
+
+    let shareConfig: {
+        redirectAutomatically: boolean;
+    };
+    if (storageItem.shareConfig !== undefined) {
+        shareConfig = storageItem.shareConfig;
+    } else {
+        shareConfig = {
+            redirectAutomatically: false,
+        };
+    }
+
+    let userId: string | undefined = undefined;
+    if (storageItem.primaryMastodonUserId !== undefined) {
+        userId = storageItem.primaryMastodonUserId;
+    } else if (storageItem.primaryMastodonProfileURL !== undefined) {
+        userId = storageItem.primaryMastodonProfileURL;
+    }
+
+    return {
+        userId: userId,
+        redirectAutomatically: shareConfig.redirectAutomatically,
+    };
+}
 
 type PostData = {
     text?: string;
@@ -317,7 +397,7 @@ const PostDataPreview: React.FC<{ postData: PostData }> = props => {
 }
 
 const SubmitStatusPreview: React.FC<{ status: SubmitStatus }> = props => {
-    const { t } = useTranslation();
+    const { t } = React.useContext(I18nServiceContext).useTranslation();
 
     switch (props.status.type) {
         case "submitting":
@@ -373,39 +453,52 @@ const SubmitStatusPreview: React.FC<{ status: SubmitStatus }> = props => {
 
 async function onSubmitShareMastodon(
     onError: (error: I18nKey) => void,
-    event: React.FormEvent<HTMLFormElement>,
-    postData: PostData | undefined
+    formValues: FormValues,
+    postData: PostData | undefined,
+    storageService: StorageService,
+    navigationService: NavigationService,
 ): Promise<void> {
     if (postData === undefined) {
         onError("Missing any post contents. Some troubles happened.");
     }
 
-    const userIdItem = event.currentTarget.elements.namedItem("user_id");
-    if (!(userIdItem instanceof HTMLInputElement)) {
+    if (typeof formValues.userId !== "string") {
         onError("User ID is required.");
         return;
     }
 
-    const userId = userIdItem.value;
-    if (typeof userId !== "string") {
-        onError("User ID is required.");
-        return;
-    }
+    const redirectAutomatically = formValues.enableAutoJump ?? false;
 
-    const detectedResult = detectOrigin(userId);
+    const detectedResult = detectOrigin(formValues.userId);
     switch (detectedResult.type) {
         case "failed":
             onError(detectedResult.error);
             return;
-        case "byDirect":
-            shareArticle(detectedResult.url.origin, postData);
+        case "byProfileUrl":
+            if (formValues.saveUserId) {
+                saveUserIdToStorage(
+                    storageService,
+                    undefined,
+                    detectedResult.profileUrl,
+                    redirectAutomatically,
+                );
+            }
+            shareArticle(navigationService, detectedResult.profileUrl.origin, postData);
             return;
         case "detectByWebFinger":
             try {
-                const result = await detectByWebFinger(detectedResult.url);
+                const result = await detectByWebFinger(detectedResult.webFingerEndpoint);
                 switch (result.type) {
-                    case "byDirect":
-                        shareArticle(result.url.origin, postData);
+                    case "byProfileUrl":
+                        if (formValues.saveUserId) {
+                            saveUserIdToStorage(
+                                storageService,
+                                detectedResult.userId,
+                                result.profileUrl,
+                                redirectAutomatically,
+                            );
+                        }
+                        shareArticle(navigationService, result.profileUrl.origin, postData);
                         return;
                     case "failed":
                         onError(result.error);
@@ -420,12 +513,13 @@ async function onSubmitShareMastodon(
 
 type DetectResultOfOriginWithContinuation =
     | {
-        type: "byDirect";
-        url: URL;
+        type: "byProfileUrl";
+        profileUrl: URL;
     }
     | {
         type: "detectByWebFinger";
-        url: URL;
+        userId: string;
+        webFingerEndpoint: URL;
     }
     | {
         type: "failed";
@@ -436,15 +530,14 @@ type DetectResultOfOriginWithContinuation =
 function detectOrigin(userId: string): DetectResultOfOriginWithContinuation {
     try {
         const url = new URL(userId);
-        console.log(url);
         if (url.protocol !== "http:" && url.protocol !== "https:") {
             return parseUserIdByMentionFormat(userId);
         } else if (!url.pathname.startsWith("/@")) {
             return parseUserIdByMentionFormat(userId);
         } else {
             return {
-                type: "byDirect",
-                url: url
+                type: "byProfileUrl",
+                profileUrl: url
             };
         }
     } catch (e) {
@@ -453,22 +546,24 @@ function detectOrigin(userId: string): DetectResultOfOriginWithContinuation {
 }
 
 function parseUserIdByMentionFormat(userId: string): DetectResultOfOriginWithContinuation {
-    const matchResult = userId.match("@?[^@]+@(.+)");
-    if (matchResult === null || matchResult.length !== 2) {
+    const matchResult = userId.match("@?([^@]+@(.+))");
+    if (matchResult === null || matchResult.length !== 3) {
         return {
             type: "failed",
             error: 'Given user ID is invalid. The format is "@username@example.com".'
         };
     }
 
-    const domain = matchResult[1];
+    const accountResourceId = matchResult[1];
+    const domain = matchResult[2];
 
     try {
         const url = new URL(`https://${domain}/.well-known/webfinger`);
-        url.searchParams.set("resource", `acct:${userId}`)
+        url.searchParams.set("resource", `acct:${accountResourceId}`)
         return {
             type: "detectByWebFinger",
-            url: url,
+            userId: accountResourceId,
+            webFingerEndpoint: url,
         };
     } catch (e) {
         return {
@@ -480,8 +575,8 @@ function parseUserIdByMentionFormat(userId: string): DetectResultOfOriginWithCon
 
 type DetectResultOfOrigin =
     | {
-        type: "byDirect";
-        url: URL;
+        type: "byProfileUrl";
+        profileUrl: URL;
     }
     | {
         type: "failed";
@@ -496,19 +591,49 @@ async function detectByWebFinger(
     const body = await response.json();
     if ("aliases" in body && body["aliases"].length >= 1) {
         return {
-            type: "byDirect",
-            url: new URL(body["aliases"][0])
+            type: "byProfileUrl",
+            profileUrl: new URL(body["aliases"][0])
         };
     } else {
         throw new Error("Illegal response by WebFinger.");
     }
 }
 
-function shareArticle(originUrl: string, postData: PostData): void {
+function saveUserIdToStorage(
+    storageService: StorageService,
+    userId: string | undefined,
+    profileUrl: URL | undefined,
+    redirectAutomatically: boolean
+): void {
+    storageService.updateOrInsert(
+        oldItem => {
+            return {
+                ...oldItem,
+                primaryMastodonUserId: userId ?? oldItem.primaryMastodonUserId,
+                primaryMastodonProfileURL: profileUrl?.toString() ?? oldItem.primaryMastodonProfileURL,
+                shareConfig: {
+                    redirectAutomatically: redirectAutomatically,
+                }
+            };
+        },
+        () => {
+            return {
+                version: 1,
+                primaryMastodonUserId: userId,
+                primaryMastodonProfileURL: profileUrl.toString(),
+                shareConfig: {
+                    redirectAutomatically: redirectAutomatically,
+                }
+            }
+        }
+    );
+}
+
+function shareArticle(navigationService: NavigationService, originUrl: string, postData: PostData): void {
     const shareUrl = new URL(originUrl);
     shareUrl.pathname = "/share";
     shareUrl.searchParams.set("text", postData.text);
     shareUrl.searchParams.set("url", postData.url);
-    window.open(shareUrl);
+    navigationService.moveToUrl(shareUrl);
 }
 

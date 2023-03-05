@@ -2,11 +2,15 @@
     "private": true,
     "dependencies": {
         "@types/react-dom": "^18.0.11",
+        "crypto-browserify": "^3.12.0",
         "i18next": "^22.4.10",
+        "jsonschema": "^1.4.1",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
+        "react-hook-form": "^7.43.4",
         "react-i18next": "^12.2.0",
-        "tailwindcss": "^3.2.7"
+        "tailwindcss": "^3.2.7",
+        "url": "^0.11.0"
     },
     "devDependencies": {
         "@types/ejs": "^3.1.2",
