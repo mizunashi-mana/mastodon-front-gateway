@@ -26,6 +26,7 @@
         "webpack-cli": "^5.0.1"
     },
     "scripts": {
+        "build": "npm run build:dev",
         "build:dev": "npm run build:html && npm run build:webpack:dev",
         "build:prod": "npm run build:html && npm run build:webpack:prod",
         "build:webpack:dev": "webpack --mode=development",
