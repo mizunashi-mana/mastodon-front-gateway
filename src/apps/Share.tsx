@@ -6,6 +6,10 @@ import { SiteConfigServiceContext } from "../services/SiteConfigService";
 import { StorageService, StorageServiceContext } from "../services/StorageService";
 import { StorageItem } from "../storage/types";
 import { NavigationService, NavigationServiceContext } from "../services/NavigationService";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCheckCircle } from "@fortawesome/free-regular-svg-icons/faCheckCircle";
+import { faRotate } from "@fortawesome/free-solid-svg-icons/faRotate";
+import { faCircleXmark } from "@fortawesome/free-solid-svg-icons/faCircleXmark";
 
 type FormValues = {
     userId?: string;
@@ -80,7 +84,14 @@ function usePropsInView(propsAndStates: {
     const [formState, updateFormState] = React.useState<FormState>(
         redirectAutomatically ? { type: "redirect-automatically" } : { type: "ok" }
     );
-    const { register, handleSubmit, watch, setValue, formState: reactHookFormState } = ReactHookForm.useForm<FormValues>({
+    const {
+        register,
+        handleSubmit,
+        watch,
+        setValue,
+        formState: reactHookFormState,
+        setError,
+    } = ReactHookForm.useForm<FormValues>({
         defaultValues: {
             userId: shareConfig.userId,
             saveUserId: shareConfig.userId !== undefined,
@@ -120,6 +131,9 @@ function usePropsInView(propsAndStates: {
     }, [formState, reactHookFormState]);
 
     const onInputError = React.useCallback((errorMsg: I18nKey) => {
+        setError("root", {
+            message: errorMsg,
+        });
         updateFormState(currentFormError => {
             switch (currentFormError.type) {
                 case "ok":
@@ -137,6 +151,9 @@ function usePropsInView(propsAndStates: {
     }, [updateFormState]);
 
     const onCriticalError = React.useCallback((errorMsg: I18nKey) => {
+        setError("root", {
+            message: errorMsg,
+        });
         updateFormState(currentFormError => {
             switch (currentFormError.type) {
                 case "ok":
@@ -423,48 +440,32 @@ const SubmitStatusPreview: React.FC<{ status: SubmitStatus }> = props => {
         case "submitting":
             return (
                 <div role="status" title={t("Submitting...")}>
-                    <svg
+                    <FontAwesomeIcon
+                        icon={faRotate}
                         aria-hidden="true"
-                        className="
-                            w-8 h-8 text-gray-200 animate-spin
-                            dark:text-gray-600 fill-blue-600
-                        "
-                        viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
-                        <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
-                    </svg>
+                        className="w-8 h-8 text-gray-300 dark:text-gray-600"
+                        spin></FontAwesomeIcon>
                     <span className="sr-only">{t("Submitting...")}</span>
                 </div>
             );
         case "can-submit":
             return (
                 <div role="status" title={t("Ready to submit.")}>
-                    <svg
+                    <FontAwesomeIcon
+                        icon={faCheckCircle}
                         aria-hidden="true"
-                        className="
-                            w-8 h-8
-                            fill-green-600 dark:fill-gray-600
-                        "
-                        viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-                        {/** @license Font Awesome Pro 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2023 Fonticons, Inc. */}
-                        <path d="M243.8 339.8C232.9 350.7 215.1 350.7 204.2 339.8L140.2 275.8C129.3 264.9 129.3 247.1 140.2 236.2C151.1 225.3 168.9 225.3 179.8 236.2L224 280.4L332.2 172.2C343.1 161.3 360.9 161.3 371.8 172.2C382.7 183.1 382.7 200.9 371.8 211.8L243.8 339.8zM512 256C512 397.4 397.4 512 256 512C114.6 512 0 397.4 0 256C0 114.6 114.6 0 256 0C397.4 0 512 114.6 512 256zM256 48C141.1 48 48 141.1 48 256C48 370.9 141.1 464 256 464C370.9 464 464 370.9 464 256C464 141.1 370.9 48 256 48z"/>
-                    </svg>
+                        fill={undefined}
+                        className="w-8 h-8 text-green-600 dark:text-gray-600"></FontAwesomeIcon>
                     <span className="sr-only">{t("Ready to submit.")}</span>
                 </div>
             );
         case "validation-failed":
             return (
                 <div role="status" title={t("Invalid input!")}>
-                    <svg
+                    <FontAwesomeIcon
+                        icon={faCircleXmark}
                         aria-hidden="true"
-                        className="
-                            w-8 h-8
-                            fill-red-600 dark:fill-gray-600
-                        "
-                        viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        {/** @license Font Awesome Pro 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2023 Fonticons, Inc. */}
-                        <path d="M256 512c141.4 0 256-114.6 256-256S397.4 0 256 0S0 114.6 0 256S114.6 512 256 512zM175 175c9.4-9.4 24.6-9.4 33.9 0l47 47 47-47c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-47 47 47 47c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0l-47-47-47 47c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l47-47-47-47c-9.4-9.4-9.4-24.6 0-33.9z"/>
-                    </svg>
+                        className="w-8 h-8 text-red-600 dark:text-gray-600"></FontAwesomeIcon>
                     <span className="sr-only">{t("Invalid input!")}</span>
                 </div>
             );
@@ -480,6 +481,7 @@ async function onSubmitShareMastodon(
 ): Promise<void> {
     if (postData === undefined) {
         onError("Missing any post contents. Some troubles happened.");
+        return;
     }
 
     if (typeof formValues.userId !== "string") {
