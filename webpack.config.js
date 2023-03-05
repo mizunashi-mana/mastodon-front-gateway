@@ -62,6 +62,10 @@ const config = {
     },
     resolve: {
         extensions: [".tsx", ".ts", ".jsx", ".js"],
+        fallback: {
+            url: require.resolve("url"),
+            "crypto-browserify": require.resolve("crypto-browserify"),
+        }
     },
 };
 

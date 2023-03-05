@@ -13,6 +13,7 @@ export type I18nKey =
     | 'Given user ID is invalid. The format is "@username@example.com".'
     | "Given user ID is invalid or not found. Check it."
     | "Failed to find your user by given user ID. Check it."
+    | "Some items are not filled."
     | "Submitting..."
     | "Ready to submit."
     | "Invalid input!"

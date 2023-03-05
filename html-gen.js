@@ -25,14 +25,12 @@ const appTemplate = ejs.compile(
 
 fs.writeFileSync("src/index.html", indexTemplate({
     ...config,
-    baseUrl: ".",
     url: `${config.baseUrl}/`,
     title: "Mastodon Web Gateway",
     description: "A portal of Web apps for Mastodon.",
 }));
 fs.writeFileSync("src/share.html", appTemplate({
     ...config,
-    baseUrl: "..",
     appId: "share",
     url: `${config.baseUrl}/share/`,
     title: "Share to Mastodon",
@@ -40,7 +38,6 @@ fs.writeFileSync("src/share.html", appTemplate({
 }));
 fs.writeFileSync("src/reset.html", appTemplate({
     ...config,
-    baseUrl: "..",
     appId: "reset",
     url: `${config.baseUrl}/reset/`,
     title: "Reset Mastodon Data",
