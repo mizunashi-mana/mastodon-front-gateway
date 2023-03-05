@@ -4,4 +4,5 @@ export const NavigationServiceContext = React.createContext<NavigationService>(u
 
 export interface NavigationService {
     moveToUrl(url: URL): void;
+    reload(): void;
 }

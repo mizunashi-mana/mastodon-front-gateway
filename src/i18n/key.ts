@@ -17,4 +17,8 @@ export type I18nKey =
     | "Submitting..."
     | "Ready to submit."
     | "Invalid input!"
+    | "Reset Your Information"
+    | "Remove your data saved on your browser."
+    | "Reset"
+    | "No storage data."
     ;
