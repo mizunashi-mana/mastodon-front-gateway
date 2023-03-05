@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<%- include('/partials/head.html'); %>
+<body>
+    <div class="h-screen flex flex-col bg-gray-700">
+        <main class="mb-auto" id="app" data-app-id="<%= appId %>" data-base-url="<%= baseUrl %>">
+            <noscript>
+                Enable JavaScript on your browser to use this Web application.
+            </noscript>
+        </main>
+        <%- include('/partials/footer.html'); %>
+    </div>
+    <%- include('/partials/body-end.html'); %>
+</body>
+</html>
