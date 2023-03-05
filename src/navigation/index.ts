@@ -8,4 +8,8 @@ class NavigationServiceImpl implements NavigationService {
     moveToUrl(url: URL): void {
         window.open(url, "_self");
     }
+
+    reload(): void {
+        location.reload();
+    }
 }

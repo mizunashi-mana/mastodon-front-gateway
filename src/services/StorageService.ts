@@ -7,4 +7,5 @@ export interface StorageService {
     get(): StorageItem | undefined;
     set(storageItem: StorageItem): void;
     updateOrInsert(updater: (oldItem: StorageItem) => StorageItem, gen: () => StorageItem): StorageItem;
+    remove(): void;
 }

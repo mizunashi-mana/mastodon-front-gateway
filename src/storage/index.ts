@@ -48,4 +48,8 @@ class StorageServiceImpl implements StorageService {
 
         return newItem;
     }
+
+    remove(): void {
+        localStorage.removeItem(this.storageKey);
+    }
 }
