@@ -22,6 +22,10 @@ const config = {
             template: './src/index.html'
         }),
         new HtmlWebpackPlugin({
+            filename: 'add-share-button/index.html',
+            template: './src/add-share-button.html'
+        }),
+        new HtmlWebpackPlugin({
             filename: 'share/index.html',
             template: './src/share.html'
         }),

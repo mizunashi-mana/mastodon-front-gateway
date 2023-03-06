@@ -10,12 +10,6 @@ ejs.fileLoader = (filePath) => {
     return fs.readFileSync(path.resolve(templatesDir, filePath));
 };
 
-const indexTemplate = ejs.compile(
-    fs.readFileSync(path.resolve(templatesDir, "index.html")).toString("utf-8"),
-    {
-        root: templatesDir,
-    }
-);
 const appTemplate = ejs.compile(
     fs.readFileSync(path.resolve(templatesDir, "app.html")).toString("utf-8"),
     {
@@ -23,12 +17,30 @@ const appTemplate = ejs.compile(
     }
 );
 
-fs.writeFileSync("src/index.html", indexTemplate({
-    ...config,
-    url: `${config.baseUrl}/`,
-    title: "Mastodon Web Gateway",
-    description: "A portal of Web apps for Mastodon.",
-}));
+fs.writeFileSync("src/index.html", ejs.render(
+    fs.readFileSync(path.resolve(templatesDir, "index.html")).toString("utf-8"),
+    {
+        ...config,
+        url: `${config.baseUrl}/`,
+        title: "Mastodon Web Gateway",
+        description: "A portal of Web apps for Mastodon.",
+    },
+    {
+        root: templatesDir,
+    }
+));
+fs.writeFileSync("src/add-share-button.html", ejs.render(
+    fs.readFileSync(path.resolve(templatesDir, "add-share-button.html")).toString("utf-8"),
+    {
+        ...config,
+        url: `${config.baseUrl}/`,
+        title: "Add a Mastodon Share Button",
+        description: "How to add a Mastodon share button to your site.",
+    },
+    {
+        root: templatesDir,
+    }
+));
 fs.writeFileSync("src/share.html", appTemplate({
     ...config,
     appId: "share",

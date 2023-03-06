@@ -29,7 +29,7 @@ type PropsInView = {
     onSubmit: (event?: React.FormEvent<HTMLFormElement>) => void;
 };
 
-function usePropsInView() {
+function usePropsInView(): PropsInView {
     const storageService = React.useContext(StorageServiceContext);
 
     const {
