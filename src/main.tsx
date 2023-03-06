@@ -15,6 +15,8 @@ import { NavigationService, NavigationServiceContext } from "./services/Navigati
 import { buildNavigationService } from "./navigation";
 
 /**
+ * @license Apache-2.0 OR MPL-2.0 Mastodon Front Gateway: Copyright (c) 2023 Mizunashi Mana (https://raw.githubusercontent.com/mizunashi-mana/mastodon-front-gateway/main/LICENSE.md)
+ * and licenses of depdencies:
  * @license CC-BY-4.0 Font Awesome Free Icons: Copyright (c) 2022 Fonticons, Inc. (https://fontawesome.com)
  * @license OFL-1.1 Font Awesome Free Fonts: Copyright (c) 2022 Fonticons, Inc. (https://fontawesome.com)
  * @license MIT Font Awesome Free Code: Copyright (c) 2022 Fonticons, Inc. (https://fontawesome.com)
