@@ -1,13 +1,11 @@
 import "./main.css";
 
 import * as ReactDOM from "react-dom/client";
-import i18n from "i18next";
-import * as ReactI18n from "react-i18next";
 
 import { Share } from "./apps/Share";
 import { Reset } from "./apps/Reset";
 import { buildI18nService } from "./i18n";
-import { I18nService, I18nServiceContext } from "./services/I18nService";
+import { I18nService, I18nServiceContext, supportedLanguages, isSupportedLanguage } from "./services/I18nService";
 import { SiteConfigService, SiteConfigServiceContext } from "./services/SiteConfigService";
 import { buildStorageService } from "./storage";
 import { StorageService, StorageServiceContext } from "./services/StorageService";
@@ -22,16 +20,11 @@ import { buildNavigationService } from "./navigation";
  * @license MIT Font Awesome Free Code: Copyright (c) 2022 Fonticons, Inc. (https://fontawesome.com)
  */
 function main() {
-    i18n.use(ReactI18n.initReactI18next).init({
-        fallbackLng: "en",
-        interpolation: {
-            escapeValue: false,
-        },
-    });
-
     const i18nService = buildI18nService();
     const storageService = buildStorageService();
     const navigationService = buildNavigationService();
+
+    i18nService.setup("en");
 
     const services = {
         i18nService,
@@ -41,21 +34,27 @@ function main() {
 
     const rootElement = document.querySelector("#app");
     if (rootElement !== null) {
-        render(rootElement, services);
+        renderApp(rootElement, services);
     } else {
-        window.addEventListener('DOMContentLoaded', (event) => {
+        window.addEventListener('DOMContentLoaded', _ => {
             const rootElement = document.querySelector("#app");
-            render(rootElement, services);
+            renderApp(rootElement, services);
         });
     }
 }
 
-function render(rootElement: Element, services: {
+function renderApp(rootElement: Element, services: {
     i18nService: I18nService,
     storageService: StorageService,
     navigationService: NavigationService,
 }) {
     const appId = rootElement.getAttribute("data-app-id");
+    if (appId === null) {
+        return;
+    }
+
+    setupI18nSelectorForApp(services);
+
     const baseUrl = new URL(rootElement.getAttribute("data-base-url"), location.href);
     const root = ReactDOM.createRoot(rootElement);
 
@@ -79,6 +78,58 @@ function render(rootElement: Element, services: {
             </StorageServiceContext.Provider>
         </SiteConfigServiceContext.Provider>
     </I18nServiceContext.Provider>);
+}
+
+function setupI18nSelectorForApp(services: {
+    i18nService: I18nService,
+    storageService: StorageService,
+}) {
+    const item = services.storageService.get();
+    if (item?.language !== undefined) {
+        services.i18nService.changeLanguage(item.language);
+    }
+
+    const langSelector = document.querySelector<HTMLSelectElement>("select#app-i18n-select-lng");
+    if (langSelector === null) {
+        return;
+    }
+
+    langSelector.addEventListener("change", _ => {
+        const selectedLanguage = langSelector.value;
+        if (isSupportedLanguage(selectedLanguage)) {
+            services.storageService.updateOrInsert(
+                oldItem => ({
+                    ...oldItem,
+                    language: selectedLanguage,
+                }),
+                () => ({
+                    version: 1,
+                    language: selectedLanguage,
+                }),
+            )
+            services.i18nService.changeLanguage(selectedLanguage);
+        }
+    });
+
+    langSelector.removeChild(langSelector.querySelector("option"));
+    langSelector.append(...supportedLanguages.map(lang => {
+        const option: HTMLOptionElement = document.createElement("option");
+        option.setAttribute("value", lang);
+        switch(lang) {
+            case "en":
+                option.append(document.createTextNode("English"));
+                return option;
+            case "ja":
+                option.append(document.createTextNode("日本語"));
+                return option;
+        }
+    }));
+    langSelector.disabled = false;
+
+    services.i18nService.onLanguageChanged(lang => {
+        langSelector.value = lang;
+    });
+    langSelector.value = services.i18nService.getLanguage();
 }
 
 main();
