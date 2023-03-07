@@ -23,4 +23,5 @@ export type LocaleResource = {
     "Remove your data saved on your browser.": string;
     "Reset": string;
     "No storage data.": string;
+    "Expired auto redirecting. Re-enable if you re-submit.": string;
 }

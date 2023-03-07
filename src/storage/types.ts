@@ -8,6 +8,7 @@ export type StorageItem = {
     primaryMastodonProfileURL?: string;
     shareConfig?: {
         redirectAutomatically: boolean;
+        expiredAtMs?: number;
     };
 };
 
@@ -33,6 +34,9 @@ export const StorageItemSchema: JsonSchema.Schema = {
             properties: {
                 redirectAutomatically: {
                     type: "boolean",
+                },
+                expiredAtMs: {
+                    type: "integer",
                 },
             },
             required: [

@@ -22,5 +22,6 @@ export const locale: LocaleResource = {
     "Reset Your Information": "情報をリセット",
     "Remove your data saved on your browser.": "ブラウザから保存されているデータを削除します。",
     Reset: "リセット",
-    "No storage data.": "保存されているデータはありません。"
+    "No storage data.": "保存されているデータはありません。",
+    "Expired auto redirecting. Re-enable if you re-submit.": "自動遷移設定の有効期限が切れました。共有を行うと再度有効になります。"
 };

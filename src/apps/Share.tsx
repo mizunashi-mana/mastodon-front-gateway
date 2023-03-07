@@ -11,6 +11,8 @@ import { faCheckCircle } from "@fortawesome/free-regular-svg-icons/faCheckCircle
 import { faRotate } from "@fortawesome/free-solid-svg-icons/faRotate";
 import { faCircleXmark } from "@fortawesome/free-solid-svg-icons/faCircleXmark";
 
+const expireDurationMs = 30 * 24 * 60 * 60 * 1000;
+
 type FormValues = {
     userId?: string;
     saveUserId?: boolean;
@@ -23,6 +25,10 @@ export type FormState =
     }
     | {
         type: "redirect-automatically";
+    }
+    | {
+        type: "expired-redirect-automatically";
+        messageKey: I18nKey;
     }
     | {
         type: "critical-error";
@@ -79,11 +85,19 @@ function usePropsInView(propsAndStates: {
         return loadShareConfig(storageItem);
     }, [storageService]);
 
-    const redirectAutomatically = shareConfig.redirectAutomatically;
+    const redirectAutomatically = shareConfig.enableAutoJump && !shareConfig.expired;
 
     const [formState, updateFormState] = React.useState<FormState>(
-        redirectAutomatically ? { type: "redirect-automatically" } : { type: "ok" }
+        redirectAutomatically
+            ? { type: "redirect-automatically" }
+            : shareConfig.expired
+                ? {
+                    type: "expired-redirect-automatically",
+                    messageKey: "Expired auto redirecting. Re-enable if you re-submit.",
+                }
+                : { type: "ok" }
     );
+    console.log(formState);
     const {
         register,
         handleSubmit,
@@ -95,7 +109,7 @@ function usePropsInView(propsAndStates: {
         defaultValues: {
             userId: shareConfig.userId,
             saveUserId: shareConfig.userId !== undefined,
-            enableAutoJump: shareConfig.redirectAutomatically
+            enableAutoJump: shareConfig.enableAutoJump,
         },
     });
 
@@ -122,6 +136,8 @@ function usePropsInView(propsAndStates: {
                     }
                 case "redirect-automatically":
                     return [false, undefined, { type: "submitting" }];
+                case "expired-redirect-automatically":
+                    return [true, formState.messageKey, { type: "can-submit" }];
                 case "input-error":
                     return [true, formState.messageKey, { type: "validation-failed" }];
                 case "critical-error":
@@ -138,6 +154,7 @@ function usePropsInView(propsAndStates: {
             switch (currentFormError.type) {
                 case "ok":
                 case "redirect-automatically":
+                case "expired-redirect-automatically":
                 case "input-error":
                     return {
                         type: "input-error",
@@ -158,6 +175,7 @@ function usePropsInView(propsAndStates: {
             switch (currentFormError.type) {
                 case "ok":
                 case "redirect-automatically":
+                case "expired-redirect-automatically":
                 case "input-error":
                     return {
                         type: "critical-error",
@@ -179,6 +197,9 @@ function usePropsInView(propsAndStates: {
                     return {
                         type: "ok",
                     };
+                case "expired-redirect-automatically":
+                    // keep expired redirect automatically
+                    return currentFormError;
                 case "critical-error":
                     // not overwrite error.
                     return currentFormError;
@@ -356,17 +377,19 @@ export const Share: React.FC<{}> = () => {
 
 function loadShareConfig(storageItem: StorageItem | undefined): {
     userId?: string;
-    redirectAutomatically: boolean;
+    enableAutoJump: boolean;
+    expired: boolean;
 } {
+    const current = new Date().valueOf();
+
     if (storageItem === undefined) {
         return {
-            redirectAutomatically: false,
+            enableAutoJump: false,
+            expired: false,
         };
     }
 
-    let shareConfig: {
-        redirectAutomatically: boolean;
-    };
+    let shareConfig: StorageItem["shareConfig"];
     if (storageItem.shareConfig !== undefined) {
         shareConfig = storageItem.shareConfig;
     } else {
@@ -384,7 +407,8 @@ function loadShareConfig(storageItem: StorageItem | undefined): {
 
     return {
         userId: userId,
-        redirectAutomatically: shareConfig.redirectAutomatically,
+        enableAutoJump: shareConfig.redirectAutomatically,
+        expired: shareConfig.expiredAtMs !== undefined && shareConfig.expiredAtMs <= current,
     };
 }
 
@@ -626,6 +650,8 @@ function saveUserIdToStorage(
     profileUrl: URL | undefined,
     redirectAutomatically: boolean
 ): void {
+    const expiredAtMs = new Date().valueOf() + expireDurationMs;
+
     storageService.updateOrInsert(
         oldItem => {
             return {
@@ -634,7 +660,8 @@ function saveUserIdToStorage(
                 primaryMastodonProfileURL: profileUrl?.toString() ?? oldItem.primaryMastodonProfileURL,
                 shareConfig: {
                     redirectAutomatically: redirectAutomatically,
-                }
+                    expiredAtMs: expiredAtMs,
+                },
             };
         },
         () => {
@@ -644,9 +671,10 @@ function saveUserIdToStorage(
                 primaryMastodonProfileURL: profileUrl.toString(),
                 shareConfig: {
                     redirectAutomatically: redirectAutomatically,
-                }
-            }
-        }
+                    expiredAt: expiredAtMs,
+                },
+            };
+        },
     );
 }
 
