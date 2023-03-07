@@ -1,6 +1,6 @@
 import React from "react";
 import * as ReactHookForm from "react-hook-form";
-import { I18nKey } from "../i18n/key";
+import { I18nKey } from "../i18n/resource";
 import { I18nServiceContext } from "../services/I18nService";
 import { StorageService, StorageServiceContext } from "../services/StorageService";
 import { StorageItem } from "../storage/types";

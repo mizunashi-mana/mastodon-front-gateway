@@ -1,5 +1,5 @@
 <footer class="bg-gray-300">
-    <div class="px-5 py-4 mx-auto flex flex-wrap">
+    <div class="px-5 py-4 mx-auto flex flex-wrap items-center">
         <p class="text-sm sm:text-left text-center">
             © <%= author %>
         </p>
@@ -7,6 +7,19 @@
         <p class="text-sm sm:text-left text-center">
             <a href="<%= baseUrl %>" class="font-semibold hover:text-indigo-600">About</a>
         </p>
+        <span class="px-2 text-sm">|</span>
+        <select
+            id="app-i18n-select-lng"
+            class="
+                w-24 px-2.5 py-1
+                text-gray-900 text-sm
+                border border-gray-300
+                rounded-lg
+                bg-gray-50 disabled:bg-slate-400
+            "
+            disabled>
+            <option value="en">English</option>
+        </select>
         <span class="px-2 text-sm">|</span>
         <p class="text-sm sm:text-left text-left">
             This app is provided without warranty of any kind, and may be closed suddenly.

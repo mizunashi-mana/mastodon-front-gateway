@@ -1,5 +1,5 @@
 import React from "react";
-import { I18nKey } from "../i18n/key";
+import { I18nKey } from "../i18n/resource";
 import * as ReactHookForm from "react-hook-form";
 import { I18nServiceContext } from "../services/I18nService";
 import { SiteConfigServiceContext } from "../services/SiteConfigService";
@@ -341,9 +341,8 @@ export const Share: React.FC<{}> = () => {
                             className="
                                 w-5/6 py-1.5 mr-3
                                 rounded-md block
-                                bg-yellow-600
                                 font-medium text-gray-100
-                                disabled:bg-slate-300
+                                bg-yellow-600 disabled:bg-slate-300
                             "
                             disabled={!propsInView.submitEnabled}
                             >{t("Share")}</button>
