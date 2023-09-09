@@ -97,7 +97,6 @@ function usePropsInView(propsAndStates: {
                 }
                 : { type: "ok" }
     );
-    console.log(formState);
     const {
         register,
         handleSubmit,
@@ -550,6 +549,7 @@ async function onSubmitShareMastodon(
                         return;
                 }
             } catch (e) {
+                console.error(e);
                 onError("Failed to find your user by given user ID. Check it.");
                 return;
             }
@@ -634,11 +634,17 @@ async function detectByWebFinger(
 ): Promise<DetectResultOfOrigin> {
     const response = await fetch(webFingerUrl);
     const body = await response.json();
-    if ("aliases" in body && body["aliases"].length >= 1) {
-        return {
-            type: "byProfileUrl",
-            profileUrl: new URL(body["aliases"][0])
-        };
+
+    if ("links" in body && Array.isArray(body["links"])) {
+        for (const link of body["links"]) {
+            if (link["type"] == "text/html") {
+                return {
+                    type: "byProfileUrl",
+                    profileUrl: new URL(link["href"]),
+                };
+            }
+        }
+        throw new Error("Illegal response by WebFinger.");
     } else {
         throw new Error("Illegal response by WebFinger.");
     }
